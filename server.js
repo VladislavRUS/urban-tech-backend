@@ -55,6 +55,18 @@ app.get('/api/contracts', async (req, res) => {
     res.send(contracts);
 });
 
+app.get('/api/users/:userId/contracts', async (req, res) => {
+    const combinations = await Mongo.getCombinations();
+
+    const userCombination = combinations.find(combination => combination.user.id === req.params.userId);
+
+    if (userCombination) {
+        res.send(userCombination.contracts);
+    } else {
+        res.send([]);
+    }
+});
+
 app.get('/api/combinations', async (req, res) => {
     const combinations = await Mongo.getCombinations();
     res.send(combinations);
@@ -64,4 +76,5 @@ app.listen(PORT, function () {
   console.log(`Started on port ${PORT}!`);
 });
 
+Mongo.clearOnStartup();
 Mongo.fillEmployeesOnStartup();

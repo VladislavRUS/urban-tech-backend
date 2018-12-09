@@ -6,7 +6,7 @@ const mongoClient = new MongoClient(CONSTANTS.MONGO_DB_URL, { useNewUrlParser: t
 const generateEmployees = () => {
     const employees = [];
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
         employees.push({
             id: faker.random.uuid(),
             firstName: faker.name.firstName(),
@@ -23,6 +23,22 @@ const generateEmployees = () => {
             })
         });
     }
+
+    employees.push({
+        id: '123qwe',
+        firstName: 'Владислав',
+        lastName: 'Курочкин',
+        patronymic: 'Михайлович',
+        avatar: faker.image.avatar(),
+        latitude: faker.random.number({
+            min: 54,
+            max: 56
+        }),
+        longitude: faker.random.number({
+            min: 37,
+            max: 38
+        })
+    });
 
     return employees;
 };
@@ -73,6 +89,15 @@ const getContracts = async () => {
     return await getCollection(CONSTANTS.CONTRACTS_COLLECTION);
 };
 
+const clearOnStartup = async () => {
+    const dbo = await mongoClient.connect();
+    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
+
+    await tryDelete(gkuDatabase, CONSTANTS.CONTRACTS_COLLECTION);
+    await tryDelete(gkuDatabase, CONSTANTS.COMBINATIONS_COLLECTION);
+    await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
+};
+
 const saveCombinations = async (combinations) => {
     const dbo = await mongoClient.connect();
     const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
@@ -88,4 +113,12 @@ const getCombinations = async () => {
     return await getCollection(CONSTANTS.COMBINATIONS_COLLECTION);
 };
 
-module.exports = { fillEmployeesOnStartup, getUsers, addContracts, saveCombinations, getCombinations, getContracts };
+module.exports = {
+    fillEmployeesOnStartup,
+    getUsers,
+    addContracts,
+    saveCombinations,
+    getCombinations,
+    getContracts,
+    clearOnStartup
+};
