@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "express": "^4.16.4",
+    "faker": "^4.1.0",
+    "ml-kmeans": "^4.2.1",
+    "mongodb": "^3.1.10",
+    "multer": "^1.4.1",
+    "node-kmeans": "^1.1.8",
+    "xlsx": "^0.14.1"
+  }
+}
