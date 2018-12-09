@@ -99,11 +99,14 @@ app.post('/api/contracts/finish', (req, res) => {
 
     Mongo.addFinishedContracts([ contract ]);
 
+    console.log(Mongo.getFinishedContracts());
+
     res.send();
 });
 
-// app.listen(PORT, function () {
-//   console.log(`Started on port ${PORT}!`);
-// });
+app.listen(PORT, function () {
+   console.log(`Started on port ${PORT}!`);
+});
 
+Mongo.clearOnStartup();
 Mongo.fillEmployeesOnStartup();

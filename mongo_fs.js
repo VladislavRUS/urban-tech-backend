@@ -3,6 +3,8 @@ const fs = require('fs');
 const faker = require('faker');
 const CONSTANTS = require('./constants');
 
+const COLLECTIONS = {};
+
 const generateUsers = () => {
     const users = [];
 
@@ -40,34 +42,32 @@ const generateUsers = () => {
         })
     });
 
-    console.log(users);
-    return users;
+    return users.slice();
 };
 
 const addCollection = (collectionName, collection) => {
     let newCollection = [];
-    if (fs.existsSync(collectionName)) {
-        const savedCollection = JSON.parse(fs.readFileSync(collectionName));
-        newCollection = newCollection.join(savedCollection);
+
+    if (COLLECTIONS[collectionName] && COLLECTIONS[collectionName].length) {
+        newCollection = newCollection.concat(COLLECTIONS[collectionName]);
     }
 
-    newCollection = newCollection.join(collection);
-    console.log(newCollection)
-    fs.writeFileSync(collectionName, JSON.stringify(newCollection), 'utf8')
+        
+    newCollection = newCollection.concat(collection);
+    
+    COLLECTIONS[collectionName] = newCollection;
 };
 
 const getCollection = collectionName => {
-    if (fs.existsSync(collectionName)) {
-        return JSON.parse(fs.readFileSync(collectionName));
+    if (COLLECTIONS[collectionName] && COLLECTIONS[collectionName].length) {
+        return COLLECTIONS[collectionName];
     }
 
     return [];
 };
 
 const deleteCollection = (collectionName) => {
-    if (fs.existsSync(collectionName)) {
-        fs.unlinkSync(collectionName);
-    }
+    delete COLLECTIONS[collectionName];
 };
 
 const fillEmployeesOnStartup = async () => {
