@@ -7,7 +7,12 @@ const clusterize = (contracts) => {
             parseFloat(contract.longitude)
         ]);
 
+    console.log('Contracts length: ' + contracts.length);
+
     const result = kmeans(vectors, 5);
+
+    console.log('Centroids: ' + result.centroids.length);
+
     result.centroids.forEach((centroid, idx) => {
         centroid.index = idx;
     });
@@ -53,6 +58,8 @@ const combineUsersAndContracts = (users, contracts, clusteringResult) => {
     const combination = [];
     const usedCentroids = [];
 
+    console.log('Users: ' + users.length);
+
     users.forEach(user => {
 
         let closest = findClosestCentroidForObject(user, clusteringResult.centroids, usedCentroids);
@@ -62,6 +69,8 @@ const combineUsersAndContracts = (users, contracts, clusteringResult) => {
         }
 
         usedCentroids.push(closest);
+
+        console.log('Closest: ' + closest);
 
         const clusterContracts = [];
         clusteringResult.clusters.forEach((centroidIdx, idx) => {

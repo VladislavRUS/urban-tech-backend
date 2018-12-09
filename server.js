@@ -32,10 +32,12 @@ app.post('/api/mobile/:objectId/attaches', upload.single('attach'), (req, res) =
 
 app.get('/api/users', async (req, res) => {
     const users = await Mongo.getUsers();
+
     res.send(users);
 });
 
 app.post('/api/upload', upload.single('excel'), async (req, res) => {
+    console.log('Start uploading');
     const filePath = req.file.destination + '/' + req.file.filename;
     const contracts = Excel.parseContracts(filePath);
     await Mongo.addContracts(contracts);
@@ -45,13 +47,18 @@ app.post('/api/upload', upload.single('excel'), async (req, res) => {
 
     const combinations = Clustering.combineUsersAndContracts(users, contracts, clusteringResult);
 
+    console.log(combinations.length);
+
     await Mongo.saveCombinations(combinations);
+
+    console.log('Saved combinations');
 
     res.send(combinations);
 });
 
 app.get('/api/contracts', async (req, res) => {
     const contracts = await Mongo.getContracts();
+
     res.send(contracts);
 });
 
@@ -61,7 +68,14 @@ app.get('/api/users/:userId/contracts', async (req, res) => {
     const userCombination = combinations.find(combination => combination.user.id === req.params.userId);
 
     if (userCombination) {
-        res.send(userCombination.contracts);
+        const finishedContracts = await Mongo.getFinishedContracts();
+
+        const notFinishedContracts = userCombination.contracts.filter(contract => {
+            const isFinished = finishedContracts.find(finished => finished.number === contract.number);
+            return !isFinished;
+        });
+
+        res.send(notFinishedContracts);
     } else {
         res.send([]);
     }
@@ -70,6 +84,21 @@ app.get('/api/users/:userId/contracts', async (req, res) => {
 app.get('/api/combinations', async (req, res) => {
     const combinations = await Mongo.getCombinations();
     res.send(combinations);
+});
+
+app.get('/api/events', async (req, res) => {
+    const contracts = await Mongo.getFinishedContracts();
+    res.send(contracts);
+});
+
+app.post('/api/contracts/finish', async (req, res) => {
+    const { contract, status } = req.body.data;
+
+    contract.status = status;
+
+    await Mongo.addFinishedContracts([ contract ]);
+
+    res.send();
 });
 
 app.listen(PORT, function () {

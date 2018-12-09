@@ -60,6 +60,8 @@ const fillEmployeesOnStartup = async () => {
     const res = await gkuDatabase.collection(CONSTANTS.USERS_COLLECTION).insertMany(generateEmployees());
 
     console.log('Inserted: ' + res.insertedCount);
+
+    await dbo.close();
 };
 
 const getCollection = async collectionName => {
@@ -67,7 +69,12 @@ const getCollection = async collectionName => {
     const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
 
     const collection = await gkuDatabase.collection(collectionName).find({});
-    return await collection.toArray();
+
+    const array = await collection.toArray();
+
+    await dbo.close();
+
+    return array;
 };
 
 const getUsers = async () => {
@@ -75,6 +82,10 @@ const getUsers = async () => {
 };
 
 const addContracts = async (contracts) => {
+    if (contracts.length === 0) {
+        return;
+    }
+
     const dbo = await mongoClient.connect();
     const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
 
@@ -83,10 +94,31 @@ const addContracts = async (contracts) => {
     const res = await gkuDatabase.collection(CONSTANTS.CONTRACTS_COLLECTION).insertMany(contracts);
 
     console.log('Inserted: ' + res.insertedCount);
+
+    await dbo.close();
+};
+
+const addFinishedContracts = async (contracts) => {
+    if (contracts.length === 0) {
+        return;
+    }
+
+    const dbo = await mongoClient.connect();
+    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
+
+    const res = await gkuDatabase.collection(CONSTANTS.FINISHED_CONTRACTS_COLLECTION).insertMany(contracts);
+
+    console.log('Inserted: ' + res.insertedCount);
+
+    await dbo.close();
 };
 
 const getContracts = async () => {
     return await getCollection(CONSTANTS.CONTRACTS_COLLECTION);
+};
+
+const getFinishedContracts = async () => {
+    return await getCollection(CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
 };
 
 const clearOnStartup = async () => {
@@ -96,9 +128,16 @@ const clearOnStartup = async () => {
     await tryDelete(gkuDatabase, CONSTANTS.CONTRACTS_COLLECTION);
     await tryDelete(gkuDatabase, CONSTANTS.COMBINATIONS_COLLECTION);
     await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
+    await tryDelete(gkuDatabase, CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
+
+    await dbo.close();
 };
 
 const saveCombinations = async (combinations) => {
+    if (combinations.length === 0) {
+        return;
+    }
+
     const dbo = await mongoClient.connect();
     const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
 
@@ -107,11 +146,29 @@ const saveCombinations = async (combinations) => {
     const res = await gkuDatabase.collection(CONSTANTS.COMBINATIONS_COLLECTION).insertMany(combinations);
 
     console.log('Inserted: ' + res.insertedCount);
+
+    await dbo.close();
 };
 
 const getCombinations = async () => {
     return await getCollection(CONSTANTS.COMBINATIONS_COLLECTION);
 };
+
+const addEvent = async (event) => {
+    const dbo = await mongoClient.connect();
+    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
+
+    const res = await gkuDatabase.collection(CONSTANTS.EVENTS_COLLECTION).insertOne(event);
+
+    console.log('Inserted: ' + res.insertedCount);
+
+    await dbo.close();
+};
+
+const getEvents = async () => {
+    return await getCollection(CONSTANTS.EVENTS_COLLECTION);
+};
+
 
 module.exports = {
     fillEmployeesOnStartup,
@@ -120,5 +177,9 @@ module.exports = {
     saveCombinations,
     getCombinations,
     getContracts,
-    clearOnStartup
+    clearOnStartup,
+    getEvents,
+    addEvent,
+    addFinishedContracts,
+    getFinishedContracts
 };

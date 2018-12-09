@@ -3,5 +3,7 @@ module.exports = {
     GKU_DATABASE: 'gku',
     USERS_COLLECTION: 'usersCollection',
     CONTRACTS_COLLECTION: 'contractsCollection',
-    COMBINATIONS_COLLECTION: 'combinationsCollection'
+    FINISHED_CONTRACTS_COLLECTION: 'finishedContractsCollection',
+    COMBINATIONS_COLLECTION: 'combinationsCollection',
+    EVENTS_COLLECTION: 'eventsCollection'
 };
