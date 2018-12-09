@@ -4,7 +4,7 @@ const app = express();
 const bodyParser = require('body-parser');
 const multer  = require('multer')
 const upload = multer({ dest: 'uploads/' });
-const Mongo = require('./mongo');
+const Mongo = require('./mongo_fs');
 const Excel = require('./excel');
 const Clustering = require('./clustering');
 
@@ -30,45 +30,46 @@ app.post('/api/mobile/:objectId/attaches', upload.single('attach'), (req, res) =
     });
 });
 
-app.get('/api/users', async (req, res) => {
-    const users = await Mongo.getUsers();
+app.get('/api/users', (req, res) => {
+    const users = Mongo.getUsers();
 
     res.send(users);
 });
 
-app.post('/api/upload', upload.single('excel'), async (req, res) => {
+app.post('/api/upload', upload.single('excel'), (req, res) => {
     console.log('Start uploading');
     const filePath = req.file.destination + '/' + req.file.filename;
     const contracts = Excel.parseContracts(filePath);
-    await Mongo.addContracts(contracts);
 
-    const users = await Mongo.getUsers();
-    const clusteringResult = await Clustering.clusterize(contracts);
+    Mongo.addContracts(contracts);
+
+    const users = Mongo.getUsers();
+    const clusteringResult = Clustering.clusterize(contracts);
 
     const combinations = Clustering.combineUsersAndContracts(users, contracts, clusteringResult);
 
     console.log(combinations.length);
 
-    await Mongo.saveCombinations(combinations);
+    Mongo.addCombinations(combinations);
 
     console.log('Saved combinations');
 
     res.send(combinations);
 });
 
-app.get('/api/contracts', async (req, res) => {
-    const contracts = await Mongo.getContracts();
+app.get('/api/contracts', (req, res) => {
+    const contracts = Mongo.getContracts();
 
     res.send(contracts);
 });
 
-app.get('/api/users/:userId/contracts', async (req, res) => {
-    const combinations = await Mongo.getCombinations();
+app.get('/api/users/:userId/contracts', (req, res) => {
+    const combinations = Mongo.getCombinations();
 
     const userCombination = combinations.find(combination => combination.user.id === req.params.userId);
 
     if (userCombination) {
-        const finishedContracts = await Mongo.getFinishedContracts();
+        const finishedContracts = Mongo.getFinishedContracts();
 
         const notFinishedContracts = userCombination.contracts.filter(contract => {
             const isFinished = finishedContracts.find(finished => finished.number === contract.number);
@@ -81,29 +82,28 @@ app.get('/api/users/:userId/contracts', async (req, res) => {
     }
 });
 
-app.get('/api/combinations', async (req, res) => {
-    const combinations = await Mongo.getCombinations();
+app.get('/api/combinations', (req, res) => {
+    const combinations = Mongo.getCombinations();
     res.send(combinations);
 });
 
-app.get('/api/events', async (req, res) => {
-    const contracts = await Mongo.getFinishedContracts();
+app.get('/api/events', (req, res) => {
+    const contracts = Mongo.getFinishedContracts();
     res.send(contracts);
 });
 
-app.post('/api/contracts/finish', async (req, res) => {
+app.post('/api/contracts/finish', (req, res) => {
     const { contract, status } = req.body.data;
 
     contract.status = status;
 
-    await Mongo.addFinishedContracts([ contract ]);
+    Mongo.addFinishedContracts([ contract ]);
 
     res.send();
 });
 
-app.listen(PORT, function () {
-  console.log(`Started on port ${PORT}!`);
-});
+// app.listen(PORT, function () {
+//   console.log(`Started on port ${PORT}!`);
+// });
 
-Mongo.clearOnStartup();
 Mongo.fillEmployeesOnStartup();

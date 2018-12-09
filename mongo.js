@@ -1,7 +1,7 @@
 const faker = require('faker');
 const CONSTANTS = require('./constants');
 const MongoClient = require('mongodb').MongoClient;
-const mongoClient = new MongoClient(CONSTANTS.MONGO_DB_URL, { useNewUrlParser: true });
+const mongoClient = new MongoClient(CONSTANTS.MONGO_DB_URL, {useNewUrlParser: true});
 
 const generateEmployees = () => {
     const employees = [];
@@ -43,38 +43,48 @@ const generateEmployees = () => {
     return employees;
 };
 
-const tryDelete = async (database, collectionName) => {
-    try {
-        await database.collection(collectionName).drop();
-    } catch (e) {
-        // collection does not exists
-    }
+const tryDelete = (database, collectionName) => {
+    return new Promise((resolve) => {
+        database.collection(collectionName).drop((err, res) => {
+            if (err) {
+            }
+
+            resolve(res);
+        });
+    })
+
 };
 
 const fillEmployeesOnStartup = async () => {
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
+    return new Promise((resolve) => {
+        mongoClient.connect(async (err, client) => {
+            const gkuDatabase = client.db(CONSTANTS.GKU_DATABASE);
+            await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
 
-    await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
+            const res = await gkuDatabase.collection(CONSTANTS.USERS_COLLECTION)
+                .insertMany(generateEmployees());
 
-    const res = await gkuDatabase.collection(CONSTANTS.USERS_COLLECTION).insertMany(generateEmployees());
+            console.log('Inserted: ' + res.insertedCount);
 
-    console.log('Inserted: ' + res.insertedCount);
+            const users = await getUsers();
+            resolve(users);
 
-    await dbo.close();
+            client.close();
+        })
+    });
 };
 
-const getCollection = async collectionName => {
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
+const getCollection = collectionName => {
+    return new Promise((resolve, reject) => {
+        mongoClient.connect(async (err, client) => {
+            const gkuDatabase = client.db(CONSTANTS.GKU_DATABASE);
+            const result = await gkuDatabase.collection(collectionName).find({}).toArray();
 
-    const collection = await gkuDatabase.collection(collectionName).find({});
+            resolve(result);
 
-    const array = await collection.toArray();
-
-    await dbo.close();
-
-    return array;
+            client.close();
+        })
+    });
 };
 
 const getUsers = async () => {
@@ -95,7 +105,7 @@ const addContracts = async (contracts) => {
 
     console.log('Inserted: ' + res.insertedCount);
 
-    await dbo.close();
+    dbo.close();
 };
 
 const addFinishedContracts = async (contracts) => {
@@ -110,16 +120,14 @@ const addFinishedContracts = async (contracts) => {
 
     console.log('Inserted: ' + res.insertedCount);
 
-    await dbo.close();
+    dbo.close();
 };
 
-const getContracts = async () => {
-    return await getCollection(CONSTANTS.CONTRACTS_COLLECTION);
-};
+const getContracts =
+    () => getCollection(CONSTANTS.CONTRACTS_COLLECTION);
 
-const getFinishedContracts = async () => {
-    return await getCollection(CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
-};
+const getFinishedContracts =
+    () => getCollection(CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
 
 const clearOnStartup = async () => {
     const dbo = await mongoClient.connect();
@@ -130,7 +138,7 @@ const clearOnStartup = async () => {
     await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
     await tryDelete(gkuDatabase, CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
 
-    await dbo.close();
+    dbo.close();
 };
 
 const saveCombinations = async (combinations) => {
@@ -147,7 +155,7 @@ const saveCombinations = async (combinations) => {
 
     console.log('Inserted: ' + res.insertedCount);
 
-    await dbo.close();
+    dbo.close();
 };
 
 const getCombinations = async () => {
@@ -162,13 +170,10 @@ const addEvent = async (event) => {
 
     console.log('Inserted: ' + res.insertedCount);
 
-    await dbo.close();
+    dbo.close();
 };
 
-const getEvents = async () => {
-    return await getCollection(CONSTANTS.EVENTS_COLLECTION);
-};
-
+const getEvents = () => getCollection(CONSTANTS.EVENTS_COLLECTION);
 
 module.exports = {
     fillEmployeesOnStartup,
