@@ -7,9 +7,12 @@ const upload = multer({ dest: 'uploads/' });
 const Mongo = require('./mongo_fs');
 const Excel = require('./excel');
 const Clustering = require('./clustering');
+const Parser = require('./parser');
+
 
 const PORT = 5000;
 app.use(bodyParser());
+app.use(express.static(__dirname));
 
 app.use((req, res, next) => {
     res.header('Content-Type', 'application/json');
@@ -69,11 +72,16 @@ app.get('/api/users/:userId/contracts', (req, res) => {
     const userCombination = combinations.find(combination => combination.user.id === req.params.userId);
 
     if (userCombination) {
-        const finishedContracts = Mongo.getFinishedContracts();
+        const contracts = Mongo.getContracts();
 
-        const notFinishedContracts = userCombination.contracts.filter(contract => {
-            const isFinished = finishedContracts.find(finished => finished.number === contract.number);
-            return !isFinished;
+        const notFinishedContracts = [];
+
+        userCombination.contracts.forEach(contract => {
+            const maybeFinished = contracts.find(c => c.number === contract.number);
+
+            if (!maybeFinished.isFinished) {
+                notFinishedContracts.push(maybeFinished);
+            }
         });
 
         res.send(notFinishedContracts);
@@ -84,6 +92,17 @@ app.get('/api/users/:userId/contracts', (req, res) => {
 
 app.get('/api/combinations', (req, res) => {
     const combinations = Mongo.getCombinations();
+    const contracts = Mongo.getContracts();
+
+    combinations.forEach(combination => {
+        combination.contracts.forEach(contract => {
+           const maybeFinished = contracts.find(c => c.number === contract.number);
+
+           contract.isFinished = maybeFinished.isFinished;
+           contract.status = maybeFinished.isFinished;
+        });
+    });
+
     res.send(combinations);
 });
 
@@ -95,13 +114,38 @@ app.get('/api/events', (req, res) => {
 app.post('/api/contracts/finish', (req, res) => {
     const { contract, status } = req.body.data;
 
-    contract.status = status;
+    const contracts = Mongo.getContracts();
 
-    Mongo.addFinishedContracts([ contract ]);
+    const c = contracts.find(c => c.number === contract.number);
 
-    console.log(Mongo.getFinishedContracts());
+    c.isFinished = true;
+    c.status = status;
+    c.troubles = status ? 'Да' : 'Нет';
+    c.reason = status;
+
+    Mongo.addContracts(contracts);
 
     res.send();
+});
+
+app.get('/api/finishedContracts', (req, res) => {
+    const contracts = Mongo.getContracts();
+
+    res.send(contracts.filter(contract => contract.isFinished));
+});
+
+app.get('/api/parse/:contractNumber', async (req, res) => {
+    const number = req.params.contractNumber;
+
+    const file = await Parser.process(number);
+
+    res.send(file);
+});
+
+app.get('/api/heatmap', (req, res) => {
+    const data = fs.readFileSync('./heatmap.json');
+
+    res.send(data);
 });
 
 app.listen(PORT, function () {

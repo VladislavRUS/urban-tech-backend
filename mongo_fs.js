@@ -52,9 +52,8 @@ const addCollection = (collectionName, collection) => {
         newCollection = newCollection.concat(COLLECTIONS[collectionName]);
     }
 
-        
     newCollection = newCollection.concat(collection);
-    
+
     COLLECTIONS[collectionName] = newCollection;
 };
 
