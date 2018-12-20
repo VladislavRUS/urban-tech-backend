@@ -72,6 +72,14 @@ const findOne = async (collectionName, query) => {
     return item;
 };
 
+const removeOneFromCollection = async (collectionName, query) => {
+    const db = client.db(dbName);
+
+    console.log('Query: ' + JSON.stringify(query));
+
+    await db.collection(collectionName).deleteOne(query);
+};
+
 const dropCollection = async (collectionName) => {
     //const client = await getClient();
     const db = client.db(dbName);
@@ -122,6 +130,7 @@ const addAttach = async (attach) => insertOneIntoCollection(COLLECTIONS.ATTACHES
 const getAttaches = async (query) => getCollection(COLLECTIONS.ATTACHES, query);
 const getAttach = async (query) => findOne(COLLECTIONS.ATTACHES, query);
 const updateAttach = async (filter, update) => updateOneInCollection(COLLECTIONS.ATTACHES, filter, update);
+const removeAttach = async (query) => removeOneFromCollection(COLLECTIONS.ATTACHES, query);
 
 // ON STARTUP
 const onStartup = async () => {
@@ -153,5 +162,6 @@ module.exports = {
     addAttach,
     getAttaches,
     getAttach,
-    updateAttach
+    updateAttach,
+    removeAttach
 };

@@ -7,8 +7,8 @@ var HereMapsAPI = require('here-maps-node').default;
 var json2xls = require('json2xls');
 
 var config = {
-    app_id: 'koLG16GJ9LItLNInNOCB',
-    app_code: 'OV4SaTIlRmeSVIG-F3wxZQ'
+    app_id: 'ioA1jk9QNHGe1eEI2tPL',
+    app_code: 'puAMpfv7Eeq-ybyLRvTGog'
 };
 
 const process = (contractNumber) => {
@@ -58,9 +58,15 @@ const process = (contractNumber) => {
                 };
 
                 hmAPI.geocode(geocodingParams, function (err, result) {
-                    contract['address'] = result.Response.View[0].Result[0].Location.Address.Label;
-                    contract['latitude'] = result.Response.View[0].Result[0].Location.DisplayPosition.Latitude;
-                    contract['longitude'] = result.Response.View[0].Result[0].Location.DisplayPosition.Longitude;
+                    if (err) {
+                        console.log(err);
+                    }
+
+                    if (!err) {
+                        contract['address'] = result.Response.View[0].Result[0].Location.Address.Label;
+                        contract['latitude'] = result.Response.View[0].Result[0].Location.DisplayPosition.Latitude;
+                        contract['longitude'] = result.Response.View[0].Result[0].Location.DisplayPosition.Longitude;
+                    }
 
                     var newContract = {};
 
@@ -79,8 +85,8 @@ const process = (contractNumber) => {
                     console.log(newContract);
                     var xls = json2xls(newContract);
 
-                    fs.writeFileSync('data.xlsx', xls, 'binary');
-                    resolve({path: 'data.xlsx'});
+                    fs.writeFileSync('./uploads/data.xlsx', xls, 'binary');
+                    resolve({path: '/uploads/data.xlsx'});
                 });
             });
         })

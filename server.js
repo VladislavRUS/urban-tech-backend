@@ -7,7 +7,10 @@ const upload = multer({ dest: 'uploads/' });
 const Mongo = require('./mongo');
 const Excel = require('./excel');
 const Clustering = require('./clustering');
+const Parser = require('./parser');
 const PORT = 5000;
+
+app.use(express.static(__dirname));
 
 app.use(bodyParser());
 
@@ -122,6 +125,33 @@ app.post('/api/attach', async (req, res) => {
     }
 
     res.sendStatus(201);
+});
+
+app.post('/api/contracts/:contractId/attachFile', upload.single('attach'), async (req, res) => {
+    const { contractId } = req.params;
+
+    const pathToFile = req.file.destination + req.file.filename;
+    const newPathToFile = pathToFile + '.' + req.file.mimetype.split('/')[1];
+
+    await Mongo.addAttach({ contractId, type: 'image', data: newPathToFile });
+
+    fs.rename(pathToFile, newPathToFile, err => {
+        res.send(newPathToFile);
+    });
+});
+
+app.delete('/api/contracts/:contractId/attachFile/:attachId', async (req, res) => {
+    await Mongo.removeAttach({ id: req.params.attachId });
+    res.send();
+});
+
+app.get('/api/parse/:contractNumber', async (req, res) => {
+    const { contractNumber } = req.params;
+    const result = await Parser.process(contractNumber);
+
+    console.log(result);
+
+    res.send(result)
 });
 
 app.listen(PORT, function () {
