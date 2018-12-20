@@ -8,19 +8,12 @@ const Mongo = require('./mongo');
 const Excel = require('./excel');
 const Clustering = require('./clustering');
 const Parser = require('./parser');
-const PORT = 5000;
+const cors = require('cors');
+const PORT = 5002;
 
 app.use(express.static(__dirname));
-
+app.use(cors ());
 app.use(bodyParser());
-
-app.use((req, res, next) => {
-    res.header('Content-Type', 'application/json');
-    res.header('Accept', 'application/json');
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-});
 
 app.get('/api/users', async (req, res) => {
     const users = await Mongo.getUsers();
