@@ -2,17 +2,14 @@ const fs = require('fs');
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
-const multer  = require('multer')
+const multer  = require('multer');
 const upload = multer({ dest: 'uploads/' });
-const Mongo = require('./mongo_fs');
+const Mongo = require('./mongo');
 const Excel = require('./excel');
 const Clustering = require('./clustering');
-const Parser = require('./parser');
-
-
 const PORT = 5000;
+
 app.use(bodyParser());
-app.use(express.static(__dirname));
 
 app.use((req, res, next) => {
     res.header('Content-Type', 'application/json');
@@ -22,135 +19,113 @@ app.use((req, res, next) => {
     next();
 });
 
-app.post('/api/mobile/:objectId/attaches', upload.single('attach'), (req, res) => {
-    console.log(req.file);
-
-    const pathToFile = req.file.destination + '/' + req.file.filename;
-    const newPathToFile = pathToFile + '.' + req.file.mimetype.split('/')[1];
-
-    fs.rename(pathToFile, newPathToFile, err => {
-        res.send();
-    });
-});
-
-app.get('/api/users', (req, res) => {
-    const users = Mongo.getUsers();
+app.get('/api/users', async (req, res) => {
+    const users = await Mongo.getUsers();
 
     res.send(users);
 });
 
-app.post('/api/upload', upload.single('excel'), (req, res) => {
-    console.log('Start uploading');
+app.post('/api/upload', upload.single('excel'), async (req, res) => {
+    await Mongo.dropCombinations();
+    await Mongo.dropContracts();
+    await Mongo.dropFinishedContracts();
+
     const filePath = req.file.destination + '/' + req.file.filename;
     const contracts = Excel.parseContracts(filePath);
 
-    Mongo.addContracts(contracts);
+    await Mongo.addContracts(contracts);
+    const users = await Mongo.getUsers();
 
-    const users = Mongo.getUsers();
-    const clusteringResult = Clustering.clusterize(contracts);
+    const combinations = Clustering.combineUsersAndContracts(users, contracts);
 
-    const combinations = Clustering.combineUsersAndContracts(users, contracts, clusteringResult);
+    await Mongo.addCombinations(combinations);
 
-    console.log(combinations.length);
-
-    Mongo.addCombinations(combinations);
-
-    console.log('Saved combinations');
-
-    res.send(combinations);
+    res.sendStatus(200);
 });
 
-app.get('/api/contracts', (req, res) => {
-    const contracts = Mongo.getContracts();
+app.get('/api/combinations', async (req, res) => {
+    const combinations = await Mongo.getCombinations();
 
-    res.send(contracts);
-});
+    const result = [];
 
-app.get('/api/users/:userId/contracts', (req, res) => {
-    const combinations = Mongo.getCombinations();
+    const allUsers = await Mongo.getUsers();
+    const allContracts = await Mongo.getContracts();
 
-    const userCombination = combinations.find(combination => combination.user.id === req.params.userId);
+    for (let i = 0; i < combinations.length; i++) {
+        const combination = combinations[i];
+        const user = allUsers.find(user => user.id === combination.userId);
+        const contracts = allContracts.filter(contract => combination.contractsId.indexOf(contract.id) !== -1);
 
-    if (userCombination) {
-        const contracts = Mongo.getContracts();
-
-        const notFinishedContracts = [];
-
-        userCombination.contracts.forEach(contract => {
-            const maybeFinished = contracts.find(c => c.number === contract.number);
-
-            if (!maybeFinished.isFinished) {
-                notFinishedContracts.push(maybeFinished);
-            }
+        result.push({
+            user,
+            contracts
         });
-
-        res.send(notFinishedContracts);
-    } else {
-        res.send([]);
     }
+
+    res.send(result);
 });
 
-app.get('/api/combinations', (req, res) => {
-    const combinations = Mongo.getCombinations();
-    const contracts = Mongo.getContracts();
-
-    combinations.forEach(combination => {
-        combination.contracts.forEach(contract => {
-           const maybeFinished = contracts.find(c => c.number === contract.number);
-
-           contract.isFinished = maybeFinished.isFinished;
-           contract.status = maybeFinished.isFinished;
-        });
-    });
-
-    res.send(combinations);
-});
-
-app.get('/api/events', (req, res) => {
-    const contracts = Mongo.getFinishedContracts();
+app.get('/api/contracts', async (req, res) => {
+    const contracts = await Mongo.getContracts();
     res.send(contracts);
 });
 
-app.post('/api/contracts/finish', (req, res) => {
-    const { contract, status } = req.body.data;
+app.post('/api/contracts/:contractId/finish', async (req, res) => {
+    const { contractId } = req.params;
+    const { userId, status } = req.body;
 
-    const contracts = Mongo.getContracts();
+    console.log(req.body);
 
-    const c = contracts.find(c => c.number === contract.number);
-
-    c.isFinished = true;
-    c.status = status;
-    c.troubles = status ? 'Да' : 'Нет';
-    c.reason = status;
-
-    Mongo.addContracts(contracts);
+    await Mongo.finishContract({ contractId, userId, status, timestamp: new Date().getTime() });
 
     res.send();
 });
 
-app.get('/api/finishedContracts', (req, res) => {
-    const contracts = Mongo.getContracts();
+app.get('/api/events', async (req, res) => {
+    const events = [];
 
-    res.send(contracts.filter(contract => contract.isFinished));
+    const finishedContracts = await Mongo.getFinishedContracts();
+
+    const userIds = finishedContracts.map(result => result.userId);
+    const users = await Mongo.getUsers({ id: { $in: userIds}});
+
+    const contractIds = finishedContracts.map(result => result.contractId);
+    const contracts = await Mongo.getContracts({ id: { $in: contractIds}});
+
+    finishedContracts.forEach(result => {
+        const user = users.find(user => result.userId === user.id);
+        const contract = contracts.find(contract => result.contractId === contract.id);
+        const { status, timestamp } = result;
+
+        events.push({
+            user,
+            contract,
+            status,
+            timestamp
+        });
+    });
+
+    res.send(events);
 });
 
-app.get('/api/parse/:contractNumber', async (req, res) => {
-    const number = req.params.contractNumber;
+app.post('/api/attach', async (req, res) => {
+    const { contractId, type, data } = req.body;
 
-    const file = await Parser.process(number);
+    const attach = await Mongo.getAttach({ contractId, type });
 
-    res.send(file);
-});
+    if (attach && type === 'comment') {
+        const filter = { id: attach.id };
+        const update = { $set: { data } };
+        await Mongo.updateAttach(filter, update);
+    } else {
+        await Mongo.addAttach({ contractId, type, data });
+    }
 
-app.get('/api/heatmap', (req, res) => {
-    const data = fs.readFileSync('./heatmap.json');
-
-    res.send(data);
+    res.sendStatus(201);
 });
 
 app.listen(PORT, function () {
-   console.log(`Started on port ${PORT}!`);
+    console.log(`Started on port ${PORT}!`);
 });
 
-Mongo.clearOnStartup();
-Mongo.fillEmployeesOnStartup();
+Mongo.onStartup();

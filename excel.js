@@ -1,4 +1,6 @@
 const XLSX = require('xlsx');
+const faker = require('faker');
+
 const CONTRACT_KEY_MAPPER = {
     'Номер контракта': 'number',
     'Заказчик': 'customer',
@@ -10,7 +12,6 @@ const CONTRACT_KEY_MAPPER = {
     'Долгота': 'longitude',
     'Дата завершения контракта': 'expirationDate'
 };
-
 
 const parseContracts = (filePath) => {
     const workbook = XLSX.readFile(filePath);
@@ -24,6 +25,7 @@ const parseContracts = (filePath) => {
         Object.keys(contract).forEach(key => {
             const newKey = CONTRACT_KEY_MAPPER[key];
             newContract[newKey] = contract[key];
+            newContract.id = faker.random.uuid();
         });
 
         return newContract;

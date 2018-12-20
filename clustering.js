@@ -54,11 +54,10 @@ const findClosestCentroidForObject = (object, centroids, usedCentroids) => {
     return closestCentroid;
 };
 
-const combineUsersAndContracts = (users, contracts, clusteringResult) => {
+const combineUsersAndContracts = (users, contracts) => {
+    const clusteringResult = clusterize(contracts);
     const combination = [];
     const usedCentroids = [];
-
-    console.log('Users: ' + users.length);
 
     users.forEach(user => {
 
@@ -70,8 +69,6 @@ const combineUsersAndContracts = (users, contracts, clusteringResult) => {
 
         usedCentroids.push(closest);
 
-        console.log('Closest: ' + closest);
-
         const clusterContracts = [];
         clusteringResult.clusters.forEach((centroidIdx, idx) => {
             if (centroidIdx === closest) {
@@ -80,12 +77,12 @@ const combineUsersAndContracts = (users, contracts, clusteringResult) => {
         });
 
         combination.push({
-            user,
-            contracts: clusterContracts
+            userId: user.id,
+            contractsId: clusterContracts.map(contract => contract.id)
         });
     });
 
     return combination;
 };
 
-module.exports = { clusterize, combineUsersAndContracts };
+module.exports = { combineUsersAndContracts };

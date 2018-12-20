@@ -1,190 +1,157 @@
 const faker = require('faker');
-const CONSTANTS = require('./constants');
+const COLLECTIONS = require('./collections');
+const mocks = require('./mock');
 const MongoClient = require('mongodb').MongoClient;
-const mongoClient = new MongoClient(CONSTANTS.MONGO_DB_URL, {useNewUrlParser: true});
+const dbName = 'gku';
+const url = 'mongodb://localhost:27017';
 
-const generateEmployees = () => {
-    const employees = [];
+let client;
 
-    for (let i = 0; i < 4; i++) {
-        employees.push({
-            id: faker.random.uuid(),
-            firstName: faker.name.firstName(),
-            lastName: faker.name.lastName(),
-            patronymic: faker.name.lastName(),
-            avatar: faker.image.avatar(),
-            latitude: faker.random.number({
-                min: 54,
-                max: 56
-            }),
-            longitude: faker.random.number({
-                min: 37,
-                max: 38
-            })
-        });
+// COMMON
+const getClient = async () => await MongoClient.connect(url, {
+    useNewUrlParser: true
+});
+
+const insertManyIntoCollection = async (collectionName, items) => {
+    //const client = await getClient();
+    const db = client.db(dbName);
+
+    const collection = await db.collection(collectionName);
+
+    const result = await collection.insertMany(items);
+    console.log('Inserted: ' + result.insertedCount);
+};
+
+const insertOneIntoCollection = async (collectionName, item) => {
+    //const client = await getClient();
+    const db = client.db(dbName);
+
+    const collection = await db.collection(collectionName);
+
+    if (!item.id) {
+        item.id = faker.random.uuid();
     }
 
-    employees.push({
-        id: '123qwe',
-        firstName: 'Владислав',
-        lastName: 'Курочкин',
-        patronymic: 'Михайлович',
-        avatar: faker.image.avatar(),
-        latitude: faker.random.number({
-            min: 54,
-            max: 56
-        }),
-        longitude: faker.random.number({
-            min: 37,
-            max: 38
-        })
+    const result = await collection.insertOne(item);
+    console.log('Inserted: ' + result.insertedCount);
+};
+
+const getCollection = async (collectionName, query = {}) => {
+    //const client = await getClient();
+    const db = client.db(dbName);
+
+    console.log('Query: ' + JSON.stringify(query));
+
+    const items = await db.collection(collectionName).find(query).toArray();
+
+    //await client.close();
+    return items;
+};
+
+updateOneInCollection = async (collectionName, filter = {}, update = {}) => {
+    //const client = await getClient();
+    const db = client.db(dbName);
+
+    console.log('Filter: ' + JSON.stringify(filter));
+    console.log('Update: ' + JSON.stringify(update));
+
+    await db.collection(collectionName).updateOne(filter, update);
+
+    //await client.close();
+};
+
+const findOne = async (collectionName, query) => {
+    //const client = await getClient();
+    const db = client.db(dbName);
+
+    console.log('Query: ' + JSON.stringify(query));
+
+    const item = await db.collection(collectionName).findOne(query);
+
+    //await client.close();
+    return item;
+};
+
+const dropCollection = async (collectionName) => {
+    //const client = await getClient();
+    const db = client.db(dbName);
+
+    try {
+        await db.collection(collectionName).drop();
+        console.log('Deleted succesfully: ' + collectionName);
+
+    } catch(e) {
+        console.log('Collection does not exists: ' + collectionName);
+    }
+
+    //await client.close();
+};
+
+// USRES
+const addUsers = async (users) => insertManyIntoCollection(COLLECTIONS.USERS, users);
+const getUsers = async (query) => getCollection(COLLECTIONS.USERS, query);
+const getUserById = async (id) => findOne(COLLECTIONS.USERS, { id });
+
+// CONTRACTS
+const addContracts = async (contracts) => insertManyIntoCollection(COLLECTIONS.CONTRACTS, contracts);
+const getContracts = async (query) => {
+    const contracts = await getCollection(COLLECTIONS.CONTRACTS, query);
+    const finishedContracts = await getFinishedContracts();
+    const attaches = await getAttaches();
+
+    contracts.forEach(contract => {
+        contract.isFinished = !!finishedContracts.find(({ contractId }) => contractId === contract.id);
+        contract.attaches = attaches.filter(attach => attach.contractId === contract.id);
     });
 
-    return employees;
+    return contracts;
 };
+const dropContracts = async () => dropCollection(COLLECTIONS.CONTRACTS);
 
-const tryDelete = (database, collectionName) => {
-    return new Promise((resolve) => {
-        database.collection(collectionName).drop((err, res) => {
-            if (err) {
-            }
+const finishContract = async (result) => insertOneIntoCollection(COLLECTIONS.FINISHED_CONTRACTS, result);
+const getFinishedContracts = async () => getCollection(COLLECTIONS.FINISHED_CONTRACTS);
+const dropFinishedContracts = async () => dropCollection(COLLECTIONS.FINISHED_CONTRACTS);
 
-            resolve(res);
-        });
-    })
+// COMBINATIONS
+const addCombinations = async (combinations) => insertManyIntoCollection(COLLECTIONS.COMBINATIONS, combinations);
+const getCombinations = async () => getCollection(COLLECTIONS.COMBINATIONS);
+const dropCombinations = async () => dropCollection(COLLECTIONS.COMBINATIONS);
 
+// ATTACHES
+const addAttach = async (attach) => insertOneIntoCollection(COLLECTIONS.ATTACHES, attach);
+const getAttaches = async (query) => getCollection(COLLECTIONS.ATTACHES, query);
+const getAttach = async (query) => findOne(COLLECTIONS.ATTACHES, query);
+const updateAttach = async (filter, update) => updateOneInCollection(COLLECTIONS.ATTACHES, filter, update);
+
+// ON STARTUP
+const onStartup = async () => {
+    client = await getClient();
+    await dropCollection(COLLECTIONS.CONTRACTS);
+    await dropCollection(COLLECTIONS.USERS);
+    await dropCollection(COLLECTIONS.COMBINATIONS);
+    await dropCollection(COLLECTIONS.FINISHED_CONTRACTS);
+    await dropCollection(COLLECTIONS.ATTACHES);
+
+    await addUsers(mocks.generateUsers());
 };
-
-const fillEmployeesOnStartup = async () => {
-    return new Promise((resolve) => {
-        mongoClient.connect(async (err, client) => {
-            const gkuDatabase = client.db(CONSTANTS.GKU_DATABASE);
-            await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
-
-            const res = await gkuDatabase.collection(CONSTANTS.USERS_COLLECTION)
-                .insertMany(generateEmployees());
-
-            console.log('Inserted: ' + res.insertedCount);
-
-            const users = await getUsers();
-            resolve(users);
-
-            client.close();
-        })
-    });
-};
-
-const getCollection = collectionName => {
-    return new Promise((resolve, reject) => {
-        mongoClient.connect(async (err, client) => {
-            const gkuDatabase = client.db(CONSTANTS.GKU_DATABASE);
-            const result = await gkuDatabase.collection(collectionName).find({}).toArray();
-
-            resolve(result);
-
-            client.close();
-        })
-    });
-};
-
-const getUsers = async () => {
-    return await getCollection(CONSTANTS.USERS_COLLECTION);
-};
-
-const addContracts = async (contracts) => {
-    if (contracts.length === 0) {
-        return;
-    }
-
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
-
-    await tryDelete(gkuDatabase, CONSTANTS.CONTRACTS_COLLECTION);
-
-    const res = await gkuDatabase.collection(CONSTANTS.CONTRACTS_COLLECTION).insertMany(contracts);
-
-    console.log('Inserted: ' + res.insertedCount);
-
-    dbo.close();
-};
-
-const addFinishedContracts = async (contracts) => {
-    if (contracts.length === 0) {
-        return;
-    }
-
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
-
-    const res = await gkuDatabase.collection(CONSTANTS.FINISHED_CONTRACTS_COLLECTION).insertMany(contracts);
-
-    console.log('Inserted: ' + res.insertedCount);
-
-    dbo.close();
-};
-
-const getContracts =
-    () => getCollection(CONSTANTS.CONTRACTS_COLLECTION);
-
-const getFinishedContracts =
-    () => getCollection(CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
-
-const clearOnStartup = async () => {
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
-
-    await tryDelete(gkuDatabase, CONSTANTS.CONTRACTS_COLLECTION);
-    await tryDelete(gkuDatabase, CONSTANTS.COMBINATIONS_COLLECTION);
-    await tryDelete(gkuDatabase, CONSTANTS.USERS_COLLECTION);
-    await tryDelete(gkuDatabase, CONSTANTS.FINISHED_CONTRACTS_COLLECTION);
-
-    dbo.close();
-};
-
-const saveCombinations = async (combinations) => {
-    if (combinations.length === 0) {
-        return;
-    }
-
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
-
-    await tryDelete(gkuDatabase, CONSTANTS.COMBINATIONS_COLLECTION);
-
-    const res = await gkuDatabase.collection(CONSTANTS.COMBINATIONS_COLLECTION).insertMany(combinations);
-
-    console.log('Inserted: ' + res.insertedCount);
-
-    dbo.close();
-};
-
-const getCombinations = async () => {
-    return await getCollection(CONSTANTS.COMBINATIONS_COLLECTION);
-};
-
-const addEvent = async (event) => {
-    const dbo = await mongoClient.connect();
-    const gkuDatabase = dbo.db(CONSTANTS.GKU_DATABASE);
-
-    const res = await gkuDatabase.collection(CONSTANTS.EVENTS_COLLECTION).insertOne(event);
-
-    console.log('Inserted: ' + res.insertedCount);
-
-    dbo.close();
-};
-
-const getEvents = () => getCollection(CONSTANTS.EVENTS_COLLECTION);
 
 module.exports = {
-    fillEmployeesOnStartup,
+    onStartup,
+    dropCombinations,
+    dropContracts,
+    dropCollection,
+    addUsers,
     getUsers,
+    getUserById,
     addContracts,
-    saveCombinations,
-    getCombinations,
     getContracts,
-    clearOnStartup,
-    getEvents,
-    addEvent,
-    addFinishedContracts,
-    getFinishedContracts
+    finishContract,
+    getFinishedContracts,
+    dropFinishedContracts,
+    addCombinations,
+    getCombinations,
+    addAttach,
+    getAttaches,
+    getAttach,
+    updateAttach
 };
