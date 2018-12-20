@@ -12,7 +12,7 @@ const cors = require('cors');
 const PORT = 5002;
 
 app.use(express.static(__dirname));
-app.use(cors ());
+app.use(cors());
 app.use(bodyParser());
 
 app.get('/api/users', async (req, res) => {
